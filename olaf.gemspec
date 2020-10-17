@@ -18,4 +18,5 @@ Gem::Specification.new do |s|
 
   s.add_runtime_dependency 'sequel', '~> 5.37'
   s.add_runtime_dependency 'ruby-odbc', '~> 0.99'
+  s.add_development_dependency 'test-unit', '~> 3.3'
 end
