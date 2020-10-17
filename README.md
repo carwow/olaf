@@ -1,14 +1,15 @@
 # Olaf
-[![Gem Version](https://badge.fury.io/rb/ork.svg)](http://badge.fury.io/rb/ork)
-[![Build Status](https://travis-ci.org/emancu/ork.svg)](https://travis-ci.org/emancu/ork)
+[![Gem Version](https://badge.fury.io/rb/olaf.svg)](https://badge.fury.io/rb/olaf)
+[![CircleCI](https://circleci.com/gh/carwow/circleci-docs.svg?style=svg)](https://circleci.com/gh/carwow/olaf)
 
 Olaf is a small Ruby wrapper for Snowflake queries.
 
-![Olaf](https://i.pinimg.com/474x/6a/76/67/6a76672b65bf989b25b1ec0fc8cda3c8.jpg)
+![Olaf](https://user-images.githubusercontent.com/56375/96335285-8c86f080-106f-11eb-9489-999a884f1246.jpg)
+
 
 ## Dependencies
 
-`olaf` requires Ruby 2.2 or later, `sequel` and `odbc` driver to connect with DBs.
+`olaf` requires Ruby 2.6 or later, `sequel` and `odbc` driver to connect with DBs.
 
 Install dependencies using `bundler` is easy as run:
 
