@@ -1,0 +1,15 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    ruby-odbc (0.99999)
+    sequel (5.37.0)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  ruby-odbc (~> 0.99999)
+  sequel (~> 5.37)
+
+BUNDLED WITH
+   2.1.4
