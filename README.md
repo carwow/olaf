@@ -36,7 +36,7 @@ class FetchUsers
 
   template './snowflake/users_in_department.sql'
 
-  attribute :department_id
+  argument :department_id
 
   row_object User
 end
