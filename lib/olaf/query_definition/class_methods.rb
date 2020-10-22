@@ -5,7 +5,7 @@ module Olaf
       # the parameters passed, leaving the instance in a ready-to-execute state.
       #   @return Snowflake::QueryDefinition instance
       def prepare(**vars)
-        new(vars).prepare
+        new(**vars).prepare
       end
 
       # Returns ALL the arguments defined for the query, including options.
