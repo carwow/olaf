@@ -108,4 +108,22 @@ class QueryDefinitionTest < Test::Unit::TestCase
 
     assert_equal @instance.undefined_arguments, [:id]
   end
+
+  def test_equals_return_false_when_class_is_different
+    @other_query = Class.new.include(Olaf::QueryDefinition)
+
+    assert @query.new != @other_query.new
+  end
+
+  def test_equals_return_false_when_same_class_but_different_variables
+    @query.argument :arg1
+
+    assert @query.new(arg1: 1) != @query.new(arg1: 2)
+  end
+
+  def test_equals_return_true_when_same_class_and_same_variables
+    @query.argument :arg1
+
+    assert_equal @query.new(arg1: 1), @query.new(arg1: 1)
+  end
 end
