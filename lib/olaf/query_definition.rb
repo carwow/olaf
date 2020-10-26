@@ -45,6 +45,10 @@ module Olaf
       }
     end
 
+    def ==(other)
+      self.class == other.class && self.variables == other.variables
+    end
+
     def defined_arguments
       self.class.arguments.keys
     end
