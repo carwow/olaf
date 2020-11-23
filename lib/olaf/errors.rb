@@ -23,6 +23,12 @@ module Olaf
     end
   end
 
+  class UnknownArgumentsError < StandardError
+    def initialize(olaf_query)
+      super("Unknown arguments: #{olaf_query.unknown_arguments}")
+    end
+  end
+
   class QueryExecutionError < StandardError
     attr_reader :metadata
 

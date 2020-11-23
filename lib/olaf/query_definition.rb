@@ -27,6 +27,7 @@ module Olaf
 
       raise UndefinedArgumentsError, self if undefined_arguments.any?
       raise MissingArgumentsError, self if missing_arguments.any?
+      raise UnknownArgumentsError, self if unknown_arguments.any?
 
       literal_arguments = self.class.arguments.select { |_k, v| v[:literal] }.keys
 
@@ -57,15 +58,21 @@ module Olaf
       defined_arguments - @variables.keys
     end
 
-    # Find placeholders in the SQL file.
     # Every placeholder MUST be declared as an `argument` of the query.
     def undefined_arguments
-      @sql_template
-        .scan(/[^:]:(\w+)/)
-        .flatten
-        .map(&:to_sym)
-        .then { |required_arguments| required_arguments - defined_arguments }
-        .uniq
+      placeholders - defined_arguments
+    end
+
+    # Every `argument` declared in the query MUST have a placeholder in the SQL file.
+    def unknown_arguments
+      defined_arguments - placeholders
+    end
+
+    private
+
+    # Find placeholders in the SQL file.
+    def placeholders
+      @placeholders ||= @sql_template.scan(/[^:]:(\w+)/).flatten.map(&:to_sym).uniq
     end
   end
 end

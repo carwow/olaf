@@ -38,6 +38,16 @@ class QueryDefinitionTest < Test::Unit::TestCase
     end
   end
 
+  def test_prepare_fails_with_unknown_arguments
+    @query.template File.join(File.dirname(__FILE__), '../fixtures/query_with_arguments.sql')
+    @query.argument :id
+    @query.argument :not_in_sql
+
+    assert_raise Olaf::UnknownArgumentsError do
+      @query.new(id: 1, not_in_sql: 123).prepare
+    end
+  end
+
   def test_prepare_fills_sql_template
     @query.template File.join(File.dirname(__FILE__), '../fixtures/query_with_arguments.sql')
     @query.argument :id
