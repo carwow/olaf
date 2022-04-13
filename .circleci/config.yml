@@ -5,11 +5,11 @@ orbs:
 jobs:
   build:
     docker:
-      - image: circleci/ruby:2.6.3-stretch-node
+      - image: cimg/ruby:2.6-stretch-node
 
     steps:
       - checkout
-      - run: sudo apt-get install unixodbc-dev
+      - run: sudo apt-get update && sudo apt-get install unixodbc-dev && sudo apt-get clean
       - run: gem install bundler
       - run: bundle install
       - run: rake test
