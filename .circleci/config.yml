@@ -8,6 +8,7 @@ jobs:
       - image: cimg/ruby:2.6-node
 
     steps:
+      - run: echo  test
       - checkout
       - run: sudo apt-get update && sudo apt-get install unixodbc-dev && sudo apt-get clean
       - run: gem install bundler
