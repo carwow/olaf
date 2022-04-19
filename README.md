@@ -2,8 +2,6 @@
 [![Gem Version](https://badge.fury.io/rb/olaf.svg)](https://badge.fury.io/rb/olaf)
 [![CircleCI](https://circleci.com/gh/carwow/olaf.svg?style=shield&circle-token=:circle-ci-badge-token)](https://circleci.com/gh/carwow/olaf)
 
-
-
 Olaf is a small Ruby wrapper for Snowflake queries.
 
 ![Olaf](https://user-images.githubusercontent.com/56375/96335285-8c86f080-106f-11eb-9489-999a884f1246.jpg)
