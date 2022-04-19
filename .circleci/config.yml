@@ -1,15 +1,18 @@
 version: 2.1
 orbs:
-  ruby: circleci/ruby@1.1.1
+  ruby: cimg/ruby@1.1.1
 
 jobs:
   build:
     docker:
-      - image: circleci/ruby:2.6.3-stretch-node
+      - image: cimg/ruby:2.6.3-node
 
     steps:
       - checkout
+      - run: sudo apt-get update
       - run: sudo apt-get install unixodbc-dev
+      - run: sudo apt-get autoclean
+      - run: sudo apt-get clean
       - run: gem install bundler
       - run: bundle install
       - run: rake test
