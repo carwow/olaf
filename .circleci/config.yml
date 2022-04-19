@@ -6,7 +6,6 @@ orbs:
 
 jobs:
   build:
-    environment: *environment
     executor: carwow/ruby
     steps:
       - checkout
