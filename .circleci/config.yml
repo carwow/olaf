@@ -1,12 +1,13 @@
 version: 2.1
 orbs:
   ruby: cimg/ruby@1.1.1
+  buildevents: honeycombio/buildevents@0.5
+  carwow: carwow/carwow-orb@0.4
 
 jobs:
   build:
-    docker:
-      - image: cimg/ruby:2.6.3-node
-
+    environment: *environment
+    executor: carwow/ruby
     steps:
       - checkout
       - run: sudo apt-get update
