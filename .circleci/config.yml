@@ -1,16 +1,18 @@
 version: 2.1
 orbs:
-  ruby: circleci/ruby@1.1.1
+  ruby: circleci/ruby@1.7.1
 
 jobs:
   build:
+    parameters:
+      ruby:
+        type: string
     docker:
-      - image: circleci/ruby:2.6.3-stretch-node
+      - image: cimg/ruby:<< parameters.ruby >>
 
     steps:
       - checkout
-      - run: sudo apt-get install unixodbc-dev
-      - run: gem install bundler
+      - run: sudo apt-get update && sudo apt-get install -y unixodbc-dev
       - run: bundle install
       - run: rake test
 
@@ -18,4 +20,7 @@ workflows:
   version: 2
   build_and_test:
     jobs:
-      - build
+      - build:
+          matrix:
+            parameters:
+              ruby: ['2.6', '2.7', '3.0', '3.1']
