@@ -1,46 +1,83 @@
-require 'sequel'
-require 'odbc_utf8'
-
 require_relative 'olaf/errors'
 require_relative 'olaf/query_definition'
-require_relative 'olaf/drivers/fake'
-require_relative 'olaf/drivers/snowflake'
 
 module Olaf
-  # Configures Olaf module to execute queries in Snowflake or in a local object
-  # to prevent external calls. Arguments passed will be forwarded directly
-  # to the `olaf_driver` class specified.
+  # Autoloaded: each driver pulls in its own client library.
+  autoload :BigQuery, File.expand_path('olaf/drivers/big_query', __dir__)
+  autoload :Fake, File.expand_path('olaf/drivers/fake', __dir__)
+  autoload :Snowflake, File.expand_path('olaf/drivers/snowflake', __dir__)
+
+  DEFAULT_DRIVER = :default
+
+  # Configures the drivers used to execute queries, either a single one built
+  # from the arguments given:
   #
-  # By default, it will set a connection with Snowflake
-  def self.configure(olaf_driver: Olaf::Snowflake, **args)
-    @instance = olaf_driver.new(**args)
+  #     Olaf.configure(user: 'olaf')             # Olaf::Snowflake, the default
+  #     Olaf.configure(olaf_driver: Olaf::Fake)  # ideal for testing
+  #
+  # or several instantiated ones, which queries pick by name with `driver`:
+  #
+  #     Olaf.configure(
+  #       drivers: { snowflake: Olaf::Snowflake.new(user: 'olaf'), big_query: Olaf::BigQuery.new(project: 'carwow') },
+  #       default: :snowflake
+  #     )
+  #
+  #   @return the default Olaf driver instance
+  def self.configure(olaf_driver: nil, drivers: nil, default: nil, **args)
+    @drivers, @default_driver =
+      if drivers
+        raise ArgumentError, 'Pass `drivers:` or a single `olaf_driver:`, not both' if olaf_driver || args.any?
+        raise ArgumentError, 'No drivers given to configure' if drivers.empty?
+
+        default_driver = default || drivers.keys.first
+        unless drivers.key?(default_driver)
+          raise ArgumentError, "Unknown default driver #{default_driver.inspect}, given: #{drivers.keys.inspect}"
+        end
+
+        [drivers.dup, default_driver]
+      else
+        [{ DEFAULT_DRIVER => (olaf_driver || Snowflake).new(**args) }, DEFAULT_DRIVER]
+      end
+
+    instance
   end
 
-  # Executes a query defined by Olaf::QueryDefinition with the driver
-  # configured previously.
+  # Executes a query defined by Olaf::QueryDefinition with the driver the query
+  # declares, or with the default driver when it declares none.
   #
   #   @return Enumerable of results.
   #     (i.e. Array of Hashes or `row_objects` when specified)
   #
   #   @raises Olaf::QueryExecutionError
+  #   @raises Olaf::UnknownDriverError
   def self.execute(olaf_query)
     row_object = olaf_query.class.row_object
     row_transformer = row_object ? ->(r) { row_object.new(**r) } : Proc.new(&:itself)
 
-    instance
+    instance(driver_name(olaf_query))
       .fetch(olaf_query)
       .map!(&row_transformer)
-  rescue Sequel::DatabaseError => error
-    raise QueryExecutionError.new(error.message, olaf_query)
   end
 
-  # Returns an instance to execute queries when its configured.
+  # Returns an instance to execute queries when its configured. Without a name,
+  # the default driver. A single configured driver serves every name, which is
+  # what keeps `Olaf::Fake` covering every query in tests.
   #
   #   @return Olaf driver instance
   #     * Olaf::Fake      - Ideal for testing
   #     * Olaf::Snowflake - Sequel.odbc driver to run queries in Snowflake
+  #     * Olaf::BigQuery  - google-cloud-bigquery driver to run queries in BigQuery
   #
-  def self.instance
-    @instance || raise('You need to configure Olaf before using it!')
+  def self.instance(name = nil)
+    drivers = @drivers || raise('You need to configure Olaf before using it!')
+
+    return drivers.fetch(@default_driver) if name.nil? || drivers.size == 1
+
+    drivers.fetch(name) { raise UnknownDriverError.new(name, drivers.keys) }
   end
+
+  def self.driver_name(olaf_query)
+    olaf_query.class.driver if olaf_query.class.respond_to?(:driver)
+  end
+  private_class_method :driver_name
 end

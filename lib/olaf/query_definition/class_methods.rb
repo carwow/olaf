@@ -58,6 +58,35 @@ module Olaf
         @template ||= file_name
       end
 
+      # Define the driver this query runs on, one of the names given to
+      # `Olaf.configure`. Defaults to the default driver.
+      #
+      # Options are driver specific: the BigQuery driver reads
+      # :maximum_bytes_billed.
+      #
+      # Example:
+      #
+      #     class OneQuery
+      #       include Olaf::QueryDefinition
+      #
+      #       driver :big_query, maximum_bytes_billed: 5 * Olaf::BigQuery::GIGABYTE
+      #     end
+      #
+      #
+      def driver(name = nil, **options)
+        return @driver if name.nil?
+
+        @driver ||= name
+        @driver_options ||= options
+
+        @driver
+      end
+
+      #   @return Hash of the options given to `driver`
+      def driver_options
+        @driver_options ||= {}
+      end
+
       # Define the object representing each row of the result.
       # When not specified, each row will be a hash by default.
       #

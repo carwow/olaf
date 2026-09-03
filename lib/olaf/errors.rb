@@ -29,6 +29,12 @@ module Olaf
     end
   end
 
+  class UnknownDriverError < StandardError
+    def initialize(name, configured_drivers)
+      super("Unknown driver #{name.inspect}, configured: #{configured_drivers.inspect}")
+    end
+  end
+
   class QueryExecutionError < StandardError
     attr_reader :metadata
 
