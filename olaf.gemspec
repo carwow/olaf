@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name        = 'olaf'
-  s.version     = '0.2.0'
+  s.version     = '0.3.0'
   s.date        = Time.now.strftime('%Y-%m-%d')
   s.summary     = 'Ruby wrapper for warehouse queries.'
   s.authors     = ['Emiliano Mancuso']
