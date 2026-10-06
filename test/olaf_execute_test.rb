@@ -81,7 +81,7 @@ class OlafExecuteTest < Test::Unit::TestCase
     default_driver = RecordingDriver.new
     other_driver = RecordingDriver.new
 
-    Olaf.configure(drivers: { big_query: other_driver, snowflake: default_driver }, default: :snowflake)
+    Olaf.configure(drivers: { big_query: other_driver, postgres: default_driver }, default: :postgres)
 
     Olaf.execute(@query_instance)
 
@@ -98,7 +98,7 @@ class OlafExecuteTest < Test::Unit::TestCase
   end
 
   def test_execute_raises_when_the_driver_declared_is_not_configured
-    Olaf.configure(drivers: { default: RecordingDriver.new, snowflake: RecordingDriver.new })
+    Olaf.configure(drivers: { default: RecordingDriver.new, postgres: RecordingDriver.new })
 
     @query.driver :big_query
 

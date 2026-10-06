@@ -18,9 +18,7 @@ Gem::Specification.new do |s|
 
   # Drivers load their own client libraries, so consumers only install the ones
   # they configure:
-  #   Olaf::Snowflake - sequel and ruby-odbc
-  #   Olaf::BigQuery  - google-cloud-bigquery
+  #   Olaf::BigQuery - google-cloud-bigquery
   s.add_development_dependency 'google-cloud-bigquery', '~> 1.64'
-  s.add_development_dependency 'sequel', '~> 5.37'
   s.add_development_dependency 'test-unit', '~> 3.3'
 end

@@ -20,8 +20,8 @@ module Olaf
     #
     #   @return QueryDefinition instance
     #
-    #   @raises Snowflake::UndefinedArgumentsError
-    #   @raises Snowflake::MissingArgumentsError
+    #   @raises Olaf::UndefinedArgumentsError
+    #   @raises Olaf::MissingArgumentsError
     def prepare
       @sql_template ||= File.read(self.class.template)
 

@@ -1,7 +1,6 @@
 # Olaf
 
-Olaf is a small Ruby wrapper for warehouse queries, running them in Snowflake or
-in BigQuery.
+Olaf is a small Ruby wrapper for warehouse queries, running them in BigQuery.
 
 ![Olaf](https://user-images.githubusercontent.com/56375/96335285-8c86f080-106f-11eb-9489-999a884f1246.jpg)
 
@@ -13,7 +12,6 @@ and only when it is used, so add to your `Gemfile` the ones you configure:
 
 | Driver            | Gems                    | Also needs              |
 | ----------------- | ----------------------- | ----------------------- |
-| `Olaf::Snowflake` | `sequel`, `ruby-odbc`   | the ODBC system library |
 | `Olaf::BigQuery`  | `google-cloud-bigquery` |                         |
 | `Olaf::Fake`      | —                       |                         |
 
@@ -34,7 +32,7 @@ control in the code and in tests.
 class FetchUsers
   include Olaf::QueryDefinition
 
-  template './snowflake/users_in_department.sql'
+  template './big_query/users_in_department.sql'
 
   argument :department_id
 
@@ -52,7 +50,6 @@ Olaf.execute(query)
 One driver, which every query runs on:
 
 ```ruby
-Olaf.configure(user: 'olaf')             # Olaf::Snowflake, the default
 Olaf.configure(olaf_driver: Olaf::Fake)  # ideal for testing
 ```
 
@@ -62,10 +59,10 @@ run on the `default:`, the first one given when it is not specified:
 ```ruby
 Olaf.configure(
   drivers: {
-    snowflake: Olaf::Snowflake.new(user: 'olaf'),
-    big_query: Olaf::BigQuery.new(project: 'carwow', labels: { service: 'flatmin' })
+    big_query: Olaf::BigQuery.new(project: 'carwow', labels: { service: 'flatmin' }),
+    fake: Olaf::Fake.new
   },
-  default: :snowflake
+  default: :big_query
 )
 
 class FetchUsers
