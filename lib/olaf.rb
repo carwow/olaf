@@ -5,21 +5,19 @@ module Olaf
   # Autoloaded: each driver pulls in its own client library.
   autoload :BigQuery, File.expand_path('olaf/drivers/big_query', __dir__)
   autoload :Fake, File.expand_path('olaf/drivers/fake', __dir__)
-  autoload :Snowflake, File.expand_path('olaf/drivers/snowflake', __dir__)
 
   DEFAULT_DRIVER = :default
 
   # Configures the drivers used to execute queries, either a single one built
   # from the arguments given:
   #
-  #     Olaf.configure(user: 'olaf')             # Olaf::Snowflake, the default
   #     Olaf.configure(olaf_driver: Olaf::Fake)  # ideal for testing
   #
   # or several instantiated ones, which queries pick by name with `driver`:
   #
   #     Olaf.configure(
-  #       drivers: { snowflake: Olaf::Snowflake.new(user: 'olaf'), big_query: Olaf::BigQuery.new(project: 'carwow') },
-  #       default: :snowflake
+  #       drivers: { big_query: Olaf::BigQuery.new(project: 'carwow'), fake: Olaf::Fake.new },
+  #       default: :big_query
   #     )
   #
   #   @return the default Olaf driver instance
@@ -36,7 +34,9 @@ module Olaf
 
         [drivers.dup, default_driver]
       else
-        [{ DEFAULT_DRIVER => (olaf_driver || Snowflake).new(**args) }, DEFAULT_DRIVER]
+        raise ArgumentError, 'Pass `drivers:` or a single `olaf_driver:` to configure' unless olaf_driver
+
+        [{ DEFAULT_DRIVER => olaf_driver.new(**args) }, DEFAULT_DRIVER]
       end
 
     instance
@@ -64,9 +64,8 @@ module Olaf
   # what keeps `Olaf::Fake` covering every query in tests.
   #
   #   @return Olaf driver instance
-  #     * Olaf::Fake      - Ideal for testing
-  #     * Olaf::Snowflake - Sequel.odbc driver to run queries in Snowflake
-  #     * Olaf::BigQuery  - google-cloud-bigquery driver to run queries in BigQuery
+  #     * Olaf::Fake     - Ideal for testing
+  #     * Olaf::BigQuery - google-cloud-bigquery driver to run queries in BigQuery
   #
   def self.instance(name = nil)
     drivers = @drivers || raise('You need to configure Olaf before using it!')

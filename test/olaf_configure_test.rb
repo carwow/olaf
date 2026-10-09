@@ -20,10 +20,10 @@ class OlafConfigureTest < Test::Unit::TestCase
     assert_equal Olaf.instance.config, { other: 'configs', like: 'user and passwd' }
   end
 
-  def test_configure_defaults_to_snowflake
-    Olaf.configure(random: 'stuff')
-
-    assert Olaf.instance.is_a?(Olaf::Snowflake)
+  def test_configure_requires_a_driver
+    assert_raise ArgumentError do
+      Olaf.configure(random: 'stuff')
+    end
   end
 
   def test_configure_returns_the_default_driver
@@ -31,33 +31,33 @@ class OlafConfigureTest < Test::Unit::TestCase
   end
 
   def test_configure_registers_several_drivers
-    snowflake = MockDriver.new
+    postgres = MockDriver.new
     big_query = MockDriver.new
 
-    Olaf.configure(drivers: { snowflake: snowflake, big_query: big_query }, default: :snowflake)
+    Olaf.configure(drivers: { postgres: postgres, big_query: big_query }, default: :postgres)
 
-    assert_equal Olaf.instance, snowflake
-    assert_equal Olaf.instance(:snowflake), snowflake
+    assert_equal Olaf.instance, postgres
+    assert_equal Olaf.instance(:postgres), postgres
     assert_equal Olaf.instance(:big_query), big_query
   end
 
   def test_configure_defaults_to_the_first_driver_registered
-    snowflake = MockDriver.new
+    postgres = MockDriver.new
 
-    Olaf.configure(drivers: { snowflake: snowflake, big_query: MockDriver.new })
+    Olaf.configure(drivers: { postgres: postgres, big_query: MockDriver.new })
 
-    assert_equal Olaf.instance, snowflake
+    assert_equal Olaf.instance, postgres
   end
 
   def test_configure_rejects_a_default_that_was_not_registered
     assert_raise_message(/Unknown default driver :redshift/) do
-      Olaf.configure(drivers: { snowflake: MockDriver.new }, default: :redshift)
+      Olaf.configure(drivers: { postgres: MockDriver.new }, default: :redshift)
     end
   end
 
   def test_configure_rejects_both_forms_at_once
     assert_raise ArgumentError do
-      Olaf.configure(olaf_driver: MockDriver, drivers: { snowflake: MockDriver.new })
+      Olaf.configure(olaf_driver: MockDriver, drivers: { postgres: MockDriver.new })
     end
   end
 
@@ -74,7 +74,7 @@ class OlafConfigureTest < Test::Unit::TestCase
   end
 
   def test_instance_raises_for_a_driver_that_was_not_registered
-    Olaf.configure(drivers: { snowflake: MockDriver.new, big_query: MockDriver.new })
+    Olaf.configure(drivers: { postgres: MockDriver.new, big_query: MockDriver.new })
 
     assert_raise Olaf::UnknownDriverError do
       Olaf.instance(:redshift)

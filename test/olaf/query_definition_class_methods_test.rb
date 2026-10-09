@@ -45,7 +45,7 @@ class QueryDefinitionClassMethodsTest < Test::Unit::TestCase
 
   def test_driver_can_be_declared_once
     @query.driver :big_query, maximum_bytes_billed: 42
-    @query.driver :snowflake, maximum_bytes_billed: 1
+    @query.driver :big_query, maximum_bytes_billed: 1
 
     assert_equal @query.driver, :big_query
     assert_equal @query.driver_options, { maximum_bytes_billed: 42 }

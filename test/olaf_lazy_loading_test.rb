@@ -12,15 +12,13 @@ class OlafLazyLoadingTest < Test::Unit::TestCase
     assert_equal loaded_after('require "olaf"; Olaf.configure(olaf_driver: Olaf::Fake)'), []
   end
 
-  def test_configuring_the_snowflake_driver_loads_sequel_only
-    assert_equal loaded_after('require "olaf"; Olaf.configure(user: "olaf")'), ['sequel']
+  def test_configuring_the_big_query_driver_loads_its_client_only
+    assert_equal loaded_after('require "olaf"; Olaf.configure(olaf_driver: Olaf::BigQuery)'), ['google-cloud-bigquery']
   end
 
   private
 
   DEPENDENCIES = {
-    'sequel' => 'Sequel',
-    'odbc_utf8' => 'ODBC',
     'google-cloud-bigquery' => 'Google::Cloud::Bigquery'
   }.freeze
 

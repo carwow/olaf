@@ -3,7 +3,7 @@ module Olaf
     module ClassMethods
       # Creates a new instance of the Query defined and validates
       # the parameters passed, leaving the instance in a ready-to-execute state.
-      #   @return Snowflake::QueryDefinition instance
+      #   @return Olaf::QueryDefinition instance
       def prepare(**vars)
         new(**vars).prepare
       end
@@ -15,9 +15,9 @@ module Olaf
       end
 
       # Define an argument for the query matching a placeholder in the template.
-      # The Sequel gem, will fill the placeholders in the SQL query escaping the
-      # value passed as an argument. Sometimes, we need to pass an argument as
-      # literal to avoid the single quotes added by Sequel (i.e. sending a table_name)
+      # The driver binds the value passed as a query parameter. Sometimes, we need
+      # to pass an argument as literal to substitute it into the SQL instead
+      # (i.e. sending a table_name)
       #
       # options - Hash config for each argument
       #   :as - Argument Type
@@ -26,7 +26,7 @@ module Olaf
       # Example:
       #
       #     class OneQuery
-      #       include Snowflake::QueryDefinition
+      #       include Olaf::QueryDefinition
       #
       #       template 'reports/one.sql'
       #
@@ -48,7 +48,7 @@ module Olaf
       # Example:
       #
       #     class OneQuery
-      #       include Snowflake::QueryDefinition
+      #       include Olaf::QueryDefinition
       #
       #       template 'reports/one.sql'
       #     end
@@ -93,7 +93,7 @@ module Olaf
       # Example:
       #
       #     class OneQuery
-      #       include Snowflake::QueryDefinition
+      #       include Olaf::QueryDefinition
       #
       #       row_object MyOwnObject
       #     end
