@@ -89,7 +89,7 @@ Olaf.instance.register_result(FetchUsers, [{ id: 42 }], with: { department_id: 1
 
 Whichever driver runs the query, a failure it reports is wrapped into
 `Olaf::QueryExecutionError`, carrying the query metadata. A BigQuery connection
-that keeps dropping is the exception: see below.
+that keeps dropping can be the exception: see below.
 
 ## BigQuery
 
@@ -118,9 +118,15 @@ The query runs as a job, so that it can be capped and labelled:
   ```
 * A call whose connection drops mid-request is retried once after each of the
   `retry_delays`. Waiting for the job is retried on its own, so a dropped status
-  check doesn't start a second job. Once the retries run out the
-  `OpenSSL::SSL::SSLError` is raised as it is, not wrapped, so a job runner such
-  as Sidekiq can retry it in turn.
+  check doesn't start a second job. A drop arrives in one of two forms, and both
+  are retried:
+  * A bare `OpenSSL::SSL::SSLError`, as google-apis-core 0.x reports an SSL read
+    that ends early. Once the retries run out it is raised as it is, not
+    wrapped, so a job runner such as Sidekiq can retry it in turn.
+  * A `Google::Cloud::Error` caused by a `Google::Apis::TransmissionError`.
+    google-apis-core 1.x reports every dropped connection this way, and 0.x
+    does the same for a reset connection. Once the retries run out it is wrapped
+    into `Olaf::QueryExecutionError`, like any other error the API reports.
 
 `Olaf.execute` returns the rows. `Olaf.instance(:big_query).run(query)` returns
 the finished job instead, for its statistics:

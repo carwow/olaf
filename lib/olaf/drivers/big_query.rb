@@ -39,8 +39,8 @@ module Olaf
     # Returns the finished job, so callers can read its stats (bytes billed,
     # cache hit) on top of its rows.
     #
-    #   @raises Olaf::QueryExecutionError, or OpenSSL::SSL::SSLError when the
-    #   connection keeps dropping
+    #   @raises Olaf::QueryExecutionError, or the OpenSSL::SSL::SSLError of a
+    #   connection that keeps dropping, which google-apis-core 0.x doesn't wrap
     def run(olaf_query)
       job = start_job(olaf_query)
       retrying_dropped_connections { job.wait_until_done! }
@@ -94,14 +94,17 @@ module Olaf
       yield
     end
 
+    # google-apis-core 1.x reports every dropped connection as a TransmissionError,
+    # and 0.x does the same for a reset connection; google-cloud-bigquery wraps it.
     def dropped_connection?(error)
-      error.is_a?(OpenSSL::SSL::SSLError)
+      error.is_a?(OpenSSL::SSL::SSLError) ||
+        (error.is_a?(Google::Cloud::Error) && error.cause.is_a?(Google::Apis::TransmissionError))
     end
 
     # Google::Cloud::Error covers everything the API reports, Google::Auth::Error
     # credentials missing or expired before a call is made. The second one only
-    # exists in googleauth 1.14 and later. A dropped connection is left out, so
-    # once its retries run out the caller's job runner can still retry it.
+    # exists in googleauth 1.14 and later. A bare OpenSSL::SSL::SSLError is left
+    # out, so once its retries run out the caller's job runner can still retry it.
     def wrapped_errors
       @wrapped_errors ||= [
         Google::Cloud::Error,

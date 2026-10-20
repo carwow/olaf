@@ -239,7 +239,7 @@ class OlafBigQueryTest < Test::Unit::TestCase
   end
 
   def test_run_does_not_retry_errors_reported_by_the_api
-    client = FakeClient.new(errors: [Google::Cloud::Error.new('quota')])
+    client = FakeClient.new(errors: [google_error_caused_by(Google::Apis::ClientError.new('quota'))])
     driver = Olaf::BigQuery.new(project: 'carwow', retry_delays: [0, 0], client: client)
 
     assert_raise Olaf::QueryExecutionError do
@@ -247,6 +247,28 @@ class OlafBigQueryTest < Test::Unit::TestCase
     end
 
     assert_equal client.query_jobs, 1
+  end
+
+  def test_run_retries_a_dropped_connection_the_google_client_wrapped
+    dropped_connection = google_error_caused_by(Google::Apis::TransmissionError.new('Connection reset by peer'))
+    client = FakeClient.new(errors: [dropped_connection])
+    driver = Olaf::BigQuery.new(project: 'carwow', retry_delays: [0, 0], client: client)
+
+    assert_equal driver.run(@query_instance).rows, [{ country: 'UK' }]
+    assert_equal client.query_jobs, 2
+  end
+
+  def test_run_wraps_a_dropped_connection_the_google_client_wrapped_once_the_retries_run_out
+    dropped_connection = google_error_caused_by(Google::Apis::TransmissionError.new('Connection reset by peer'))
+    client = FakeClient.new(errors: [dropped_connection] * 3)
+    driver = Olaf::BigQuery.new(project: 'carwow', retry_delays: [0, 0], client: client)
+
+    error = assert_raise Olaf::QueryExecutionError do
+      driver.run(@query_instance)
+    end
+
+    assert_equal error.message, 'Connection reset by peer'
+    assert_equal client.query_jobs, 3
   end
 
   def test_run_retries_waiting_for_the_job_without_starting_another
@@ -261,6 +283,13 @@ class OlafBigQueryTest < Test::Unit::TestCase
   end
 
   private
+
+  # Exception#cause can only be set by raising.
+  def google_error_caused_by(cause)
+    raise Google::Cloud::Error, cause.message, cause: cause
+  rescue Google::Cloud::Error => error
+    error
+  end
 
   def query_class(template:)
     Class.new.include(Olaf::QueryDefinition).tap do |klass|
