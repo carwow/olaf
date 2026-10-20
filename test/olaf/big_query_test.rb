@@ -37,9 +37,10 @@ class OlafBigQueryTest < Test::Unit::TestCase
   class FakeClient
     attr_reader :sql, :options, :query_jobs, :job_ids, :loaded_job_ids
 
-    def initialize(job: FakeJob.new, errors: [])
+    def initialize(job: FakeJob.new, errors: [], loaded_job: job)
       @job = job
       @errors = errors
+      @loaded_job = loaded_job
       @query_jobs = 0
       @job_ids = []
       @loaded_job_ids = []
@@ -59,7 +60,7 @@ class OlafBigQueryTest < Test::Unit::TestCase
     def job(job_id)
       @loaded_job_ids << job_id
 
-      @job
+      @loaded_job
     end
   end
 
@@ -227,15 +228,26 @@ class OlafBigQueryTest < Test::Unit::TestCase
     assert_equal client.loaded_job_ids, [client.job_ids.first]
   end
 
-  def test_run_wraps_a_job_that_already_exists_on_the_first_attempt
+  def test_run_loads_a_job_that_already_exists_on_the_first_attempt
     client = FakeClient.new(errors: [Google::Cloud::AlreadyExistsError.new('Already Exists: Job carwow:EU.job_1')])
     driver = Olaf::BigQuery.new(project: 'carwow', retry_delays: [0, 0], client: client)
 
-    assert_raise Olaf::QueryExecutionError do
+    assert_equal driver.run(@query_instance).rows, [{ country: 'UK' }]
+    assert_equal client.loaded_job_ids, [client.job_ids.first]
+  end
+
+  def test_run_wraps_a_job_that_already_exists_but_cannot_be_found
+    client = FakeClient.new(
+      errors: [Google::Cloud::AlreadyExistsError.new('Already Exists: Job carwow:europe-west2.job_1')],
+      loaded_job: nil
+    )
+    driver = Olaf::BigQuery.new(project: 'carwow', retry_delays: [0, 0], client: client)
+
+    error = assert_raise Olaf::QueryExecutionError do
       driver.run(@query_instance)
     end
 
-    assert_empty client.loaded_job_ids
+    assert_equal error.message, 'Already Exists: Job carwow:europe-west2.job_1'
   end
 
   def test_run_does_not_retry_errors_reported_by_the_api

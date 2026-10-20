@@ -59,25 +59,23 @@ module Olaf
     end
 
     # A connection can drop after BigQuery has started the job, so every attempt
-    # reuses one job ID: BigQuery refuses the retry as a duplicate, rather than
-    # running and billing the query twice.
+    # reuses one job ID: BigQuery refuses the retry as a duplicate, and the job
+    # already started is loaded rather than running and billing the query twice.
+    # If the lookup can't find the job, as happens for one in a single region,
+    # the refusal is re-raised.
     def start_job(olaf_query)
       job_id = "job_#{SecureRandom.urlsafe_base64(21)}"
-      attempts = 0
 
       retrying_dropped_connections do
-        attempts += 1
         client.query_job(
           sql(olaf_query),
           params: params(olaf_query),
           maximum_bytes_billed: maximum_bytes_billed(olaf_query),
           labels: labels(olaf_query),
-          job_id: job_id
+          job_id:
         )
       rescue Google::Cloud::AlreadyExistsError
-        raise if attempts == 1
-
-        client.job(job_id)
+        client.job(job_id) || raise
       end
     end
 

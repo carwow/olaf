@@ -120,9 +120,9 @@ The query runs as a job, so that it can be capped and labelled:
   `retry_delays`. Waiting for the job is retried on its own, so a dropped status
   check doesn't start a second job. A drop arrives in one of two forms, and both
   are retried:
-  * A bare `OpenSSL::SSL::SSLError`, as google-apis-core 0.x reports an SSL read
-    that ends early. Once the retries run out it is raised as it is, not
-    wrapped, so a job runner such as Sidekiq can retry it in turn.
+  * A bare `OpenSSL::SSL::SSLError`, which is how google-apis-core 0.x reports
+    an SSL read that ends early. Once the retries run out it is raised as it is,
+    not wrapped, so a job runner such as Sidekiq can retry it in turn.
   * A `Google::Cloud::Error` caused by a `Google::Apis::TransmissionError`.
     google-apis-core 1.x reports every dropped connection this way, and 0.x
     does the same for a reset connection. Once the retries run out it is wrapped
