@@ -1,5 +1,6 @@
 # Not a dependency of the gem: consumers of this driver add it themselves.
 require 'google/cloud/bigquery'
+require 'securerandom'
 
 # The API client debug-logs whole response bodies, which for a warehouse query
 # is the entire result set.
@@ -17,14 +18,17 @@ module Olaf
     LABEL_FORMAT = /[^a-z0-9_-]/.freeze
     LABEL_MAX_LENGTH = 63
 
+    RETRY_DELAYS = [1, 2].freeze
+
     # Credentials default to the ambient Google ones, and the client is built
     # from the arguments unless one is given.
     def initialize(project: nil, credentials: nil, maximum_bytes_billed: DEFAULT_MAXIMUM_BYTES_BILLED,
-                   labels: {}, client: nil)
+                   labels: {}, retry_delays: RETRY_DELAYS, client: nil)
       @project = project
       @credentials = credentials
       @maximum_bytes_billed = maximum_bytes_billed
       @labels = labels
+      @retry_delays = retry_delays
       @client = client
     end
 
@@ -35,15 +39,11 @@ module Olaf
     # Returns the finished job, so callers can read its stats (bytes billed,
     # cache hit) on top of its rows.
     #
-    #   @raises Olaf::QueryExecutionError
+    #   @raises Olaf::QueryExecutionError, or the OpenSSL::SSL::SSLError of a
+    #   connection that keeps dropping, which google-apis-core 0.x doesn't wrap
     def run(olaf_query)
-      job = client.query_job(
-        sql(olaf_query),
-        params: params(olaf_query),
-        maximum_bytes_billed: maximum_bytes_billed(olaf_query),
-        labels: labels(olaf_query)
-      )
-      job.wait_until_done!
+      job = start_job(olaf_query)
+      retrying_dropped_connections { job.wait_until_done! }
 
       raise QueryExecutionError.new(job.error.to_h['message'].to_s, olaf_query) if job.failed?
 
@@ -58,9 +58,51 @@ module Olaf
       @client ||= Google::Cloud::Bigquery.new(project: @project, credentials: @credentials)
     end
 
+    # A connection can drop after BigQuery has started the job, so every attempt
+    # reuses one job ID: BigQuery refuses the retry as a duplicate, and the job
+    # already started is loaded rather than running and billing the query twice.
+    # If the lookup can't find the job, as happens for one in a single region,
+    # the refusal is re-raised.
+    def start_job(olaf_query)
+      job_id = "job_#{SecureRandom.urlsafe_base64(21)}"
+
+      retrying_dropped_connections do
+        client.query_job(
+          sql(olaf_query),
+          params: params(olaf_query),
+          maximum_bytes_billed: maximum_bytes_billed(olaf_query),
+          labels: labels(olaf_query),
+          job_id:
+        )
+      rescue Google::Cloud::AlreadyExistsError
+        client.job(job_id) || raise
+      end
+    end
+
+    # google-cloud-bigquery switches off google-apis-core's retries.
+    def retrying_dropped_connections
+      @retry_delays.each do |delay|
+        return yield
+      rescue StandardError => error
+        raise unless dropped_connection?(error)
+
+        sleep delay
+      end
+
+      yield
+    end
+
+    # google-apis-core 1.x reports every dropped connection as a TransmissionError,
+    # and 0.x does the same for a reset connection; google-cloud-bigquery wraps it.
+    def dropped_connection?(error)
+      error.is_a?(OpenSSL::SSL::SSLError) ||
+        (error.is_a?(Google::Cloud::Error) && error.cause.is_a?(Google::Apis::TransmissionError))
+    end
+
     # Google::Cloud::Error covers everything the API reports, Google::Auth::Error
     # credentials missing or expired before a call is made. The second one only
-    # exists in googleauth 1.14 and later.
+    # exists in googleauth 1.14 and later. A bare OpenSSL::SSL::SSLError is left
+    # out, so once its retries run out the caller's job runner can still retry it.
     def wrapped_errors
       @wrapped_errors ||= [
         Google::Cloud::Error,
