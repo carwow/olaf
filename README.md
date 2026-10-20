@@ -88,7 +88,8 @@ Olaf.instance.register_result(FetchUsers, [{ id: 42 }], with: { department_id: 1
 ```
 
 Whichever driver runs the query, a failure it reports is wrapped into
-`Olaf::QueryExecutionError`, carrying the query metadata.
+`Olaf::QueryExecutionError`, carrying the query metadata. A BigQuery connection
+that keeps dropping is the exception: see below.
 
 ## BigQuery
 
@@ -97,7 +98,8 @@ Olaf::BigQuery.new(
   project: 'carwow',
   credentials: JSON.parse(ENV['BIGQUERY_CREDENTIALS']),  # ambient Google credentials when omitted
   maximum_bytes_billed: 5 * Olaf::BigQuery::GIGABYTE,    # default: 1 GiB
-  labels: { service: 'flatmin', country: 'uk' }
+  labels: { service: 'flatmin', country: 'uk' },
+  retry_delays: [1, 2]                                   # default: retry twice, after 1s then 2s
 )
 ```
 
@@ -114,6 +116,11 @@ The query runs as a job, so that it can be capped and labelled:
   ```ruby
   driver :big_query, maximum_bytes_billed: 10 * Olaf::BigQuery::GIGABYTE
   ```
+* A call whose connection drops mid-request is retried once after each of the
+  `retry_delays`. Waiting for the job is retried on its own, so a dropped status
+  check doesn't start a second job. Once the retries run out the
+  `OpenSSL::SSL::SSLError` is raised as it is, not wrapped, so a job runner such
+  as Sidekiq can retry it in turn.
 
 `Olaf.execute` returns the rows. `Olaf.instance(:big_query).run(query)` returns
 the finished job instead, for its statistics:

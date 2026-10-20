@@ -2,14 +2,20 @@ require_relative '../helper'
 
 class OlafBigQueryTest < Test::Unit::TestCase
   class FakeJob
-    attr_reader :rows
+    attr_reader :rows, :waits
 
-    def initialize(rows: [{ country: 'UK' }], error: nil)
+    def initialize(rows: [{ country: 'UK' }], error: nil, wait_errors: [])
       @rows = rows
       @error = error
+      @wait_errors = wait_errors
+      @waits = 0
     end
 
-    def wait_until_done!; end
+    def wait_until_done!
+      @waits += 1
+
+      raise @wait_errors.shift if @wait_errors.any?
+    end
 
     def failed?
       !@error.nil?
@@ -29,18 +35,29 @@ class OlafBigQueryTest < Test::Unit::TestCase
   end
 
   class FakeClient
-    attr_reader :sql, :options
+    attr_reader :sql, :options, :query_jobs, :job_ids, :loaded_job_ids
 
-    def initialize(job: FakeJob.new, error: nil)
+    def initialize(job: FakeJob.new, errors: [])
       @job = job
-      @error = error
+      @errors = errors
+      @query_jobs = 0
+      @job_ids = []
+      @loaded_job_ids = []
     end
 
     def query_job(sql, **options)
       @sql = sql
       @options = options
+      @query_jobs += 1
+      @job_ids << options[:job_id]
 
-      raise @error if @error
+      raise @errors.shift if @errors.any?
+
+      @job
+    end
+
+    def job(job_id)
+      @loaded_job_ids << job_id
 
       @job
     end
@@ -138,7 +155,7 @@ class OlafBigQueryTest < Test::Unit::TestCase
   end
 
   def test_fetch_wraps_errors_reported_by_the_api
-    driver = Olaf::BigQuery.new(project: 'carwow', client: FakeClient.new(error: Google::Cloud::Error.new('quota')))
+    driver = Olaf::BigQuery.new(project: 'carwow', client: FakeClient.new(errors: [Google::Cloud::Error.new('quota')]))
 
     error = assert_raise Olaf::QueryExecutionError do
       driver.fetch(@query_instance)
@@ -150,7 +167,7 @@ class OlafBigQueryTest < Test::Unit::TestCase
   def test_fetch_wraps_credential_errors
     driver = Olaf::BigQuery.new(
       project: 'carwow',
-      client: FakeClient.new(error: Google::Auth::InitializationError.new('no credentials'))
+      client: FakeClient.new(errors: [Google::Auth::InitializationError.new('no credentials')])
     )
 
     error = assert_raise Olaf::QueryExecutionError do
@@ -162,6 +179,85 @@ class OlafBigQueryTest < Test::Unit::TestCase
 
   def test_run_returns_the_finished_job
     assert_equal @driver.run(@query_instance).rows, [{ country: 'UK' }]
+  end
+
+  def test_run_retries_a_job_whose_connection_dropped
+    client = FakeClient.new(errors: [OpenSSL::SSL::SSLError.new('SSL_read: unexpected eof while reading')])
+    driver = Olaf::BigQuery.new(project: 'carwow', retry_delays: [0, 0], client: client)
+
+    assert_equal driver.run(@query_instance).rows, [{ country: 'UK' }]
+    assert_equal client.query_jobs, 2
+  end
+
+  def test_run_raises_the_dropped_connection_once_the_retries_run_out
+    dropped_connection = OpenSSL::SSL::SSLError.new('SSL_read: unexpected eof while reading')
+    client = FakeClient.new(errors: [dropped_connection] * 3)
+    driver = Olaf::BigQuery.new(project: 'carwow', retry_delays: [0, 0], client: client)
+
+    error = assert_raise OpenSSL::SSL::SSLError do
+      driver.run(@query_instance)
+    end
+
+    assert_same error, dropped_connection
+    assert_equal client.query_jobs, 3
+  end
+
+  def test_run_starts_every_attempt_with_the_same_job_id
+    dropped_connection = OpenSSL::SSL::SSLError.new('SSL_read: unexpected eof while reading')
+    client = FakeClient.new(errors: [dropped_connection] * 2)
+    driver = Olaf::BigQuery.new(project: 'carwow', retry_delays: [0, 0], client: client)
+
+    driver.run(@query_instance)
+
+    assert_equal client.job_ids.size, 3
+    assert_equal client.job_ids.uniq.size, 1
+    assert_not_nil client.job_ids.first
+  end
+
+  def test_run_loads_the_job_a_dropped_attempt_already_started
+    client = FakeClient.new(
+      errors: [
+        OpenSSL::SSL::SSLError.new('SSL_read: unexpected eof while reading'),
+        Google::Cloud::AlreadyExistsError.new('Already Exists: Job carwow:EU.job_1')
+      ]
+    )
+    driver = Olaf::BigQuery.new(project: 'carwow', retry_delays: [0, 0], client: client)
+
+    assert_equal driver.run(@query_instance).rows, [{ country: 'UK' }]
+    assert_equal client.loaded_job_ids, [client.job_ids.first]
+  end
+
+  def test_run_wraps_a_job_that_already_exists_on_the_first_attempt
+    client = FakeClient.new(errors: [Google::Cloud::AlreadyExistsError.new('Already Exists: Job carwow:EU.job_1')])
+    driver = Olaf::BigQuery.new(project: 'carwow', retry_delays: [0, 0], client: client)
+
+    assert_raise Olaf::QueryExecutionError do
+      driver.run(@query_instance)
+    end
+
+    assert_empty client.loaded_job_ids
+  end
+
+  def test_run_does_not_retry_errors_reported_by_the_api
+    client = FakeClient.new(errors: [Google::Cloud::Error.new('quota')])
+    driver = Olaf::BigQuery.new(project: 'carwow', retry_delays: [0, 0], client: client)
+
+    assert_raise Olaf::QueryExecutionError do
+      driver.run(@query_instance)
+    end
+
+    assert_equal client.query_jobs, 1
+  end
+
+  def test_run_retries_waiting_for_the_job_without_starting_another
+    job = FakeJob.new(wait_errors: [OpenSSL::SSL::SSLError.new('SSL_read: unexpected eof while reading')])
+    client = FakeClient.new(job: job)
+    driver = Olaf::BigQuery.new(project: 'carwow', retry_delays: [0, 0], client: client)
+
+    driver.run(@query_instance)
+
+    assert_equal job.waits, 2
+    assert_equal client.query_jobs, 1
   end
 
   private
